@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beautiful Buttons</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            font-family: 'Arial', sans-serif;
+        }
+
+        .button-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .btn {
+            background-color: #6c63ff;
+            color: white;
+            font-size: 18px;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .btn:hover {
+            background-color: #5a54e3;
+            transform: translateY(-4px);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            background-color: #4a46c1;
+            transform: translateY(2px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 600px) {
+            .button-container {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="button-container">
+        <button class="btn" onclick="openPage('/index2.html')">JSON to Model Converter</button>
+        <button class="btn" onclick="openPage('/index1.html')">SQL to PHP Code</button>
+        <button class="btn" onclick="openPage('/index3.html')">Input data to PHP Code</button>
+        <button class="btn" onclick="openPage('/index4.html')">SQL Code Generator</button>
+    </div>
+
+    <script>
+        function openPage(url) {
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Table Data</title>
+    <style>
+        /* Reset some default styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #4A90E2;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-top: 5px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: #4A90E2;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #4A90E2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #357ABD;
+        }
+
+        .output {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f7f7f7;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .output h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        pre {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            color: #555;
+        }
+
+        #copyButton {
+            margin-top: 15px;
+            padding: 12px 20px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            margin-bottom: 20px;
+
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #copyButton:hover {
+            background-color: #218838;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            button {
+                padding: 12px;
+
+            }
+
+            #copyButton {
+                padding: 10px 18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Input Table Data</h1>
+        <form id="inputForm">
+            <div class="form-group">
+                <label for="key">Key:</label>
+                <input type="text" id="key" required>
+            </div>
+
+            <div class="form-group">
+                <label for="tableName">Table Name:</label>
+                <input type="text" id="tableName" required>
+            </div>
+
+            <div class="form-group">
+                <label for="columns">Columns (separate with commas):</label>
+                <input type="text" id="columns" required>
+            </div>
+
+            <button type="submit">Submit</button>
+        </form>
+
+        <div id="output" class="output" style="display: none;">
+            <button id="copyButton">Copy</button>
+            <h3>Input Data:</h3>
+            <pre id="output-data"></pre>
+
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('inputForm');
+        const outputDiv = document.getElementById('output');
+        const outputData = document.getElementById('output-data');
+        const copyButton = document.getElementById('copyButton');
+
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const key = document.getElementById('key').value.trim();
+            const tableName = document.getElementById('tableName').value.trim();
+            let columns = document.getElementById('columns').value.trim(); // Use let instead of const
+
+            // Check if the last character is a comma and remove it if true
+            if (columns.endsWith(',')) {
+                columns = columns.slice(0, -1);
+            }
+
+            const tableInfo = `Key: ${key}\nTable Name: ${tableName}\nColumns: ${columns}`;
+            let scr = `<?php
+
+$key = $_POST['key'];
+
+if ($key == "${key}") {
+    require '../connection.php';
+
+    // SQL query to fetch all rows
+    $fetchall = "SELECT ${columns} FROM ${tableName}";
+    $result = mysqli_query($conn, $fetchall);
+
+    $response = [
+        'errorCode' => '000',  
+        'data' => [] // Initialize as an empty array
+    ];
+
+    if ($result && mysqli_num_rows($result) > 0) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $response['data'][] = $row; // Append each row to the data array
+        }
+    } else {
+        $response['errorCode'] = '400'; // No data found
+    }
+} else {
+    $response = [
+        'errorCode' => '401', // Unauthorized access
+        'data' => null,
+    ];
+}
+
+// Set the content type to JSON and output the response
+header('Content-Type: application/json');
+echo json_encode($response);
+?>
+`;
+
+            outputData.textContent = scr;  // Display the PHP code in the output section
+            outputDiv.style.display = 'block';  // Show the output section
+        });
+
+
+        copyButton.addEventListener('click', function () {
+            const textToCopy = outputData.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+              //  alert('Data copied to clipboard!');
+            });
+        });
+
+    </script>
+
+</body>
+
+</html>

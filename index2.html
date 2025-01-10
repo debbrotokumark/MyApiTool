@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON to Retrofit Java Model</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+        }
+
+        #filelinkInput {
+            height: 50px;
+        }
+
+        input {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>JSON to Retrofit Java Model Converter</h1>
+    <p>Paste your file link below:</p>
+
+    <textarea id="filelinkInput" placeholder="Paste your file link..."></textarea>
+
+    <p>Paste your JSON file content below:</p>
+    <textarea id="jsonInput" placeholder="Paste your JSON here..."></textarea>
+
+    <p>Enter the main class name:</p>
+    <input type="text" id="mainClassName" placeholder="Enter main class name...">
+
+    <p>Enter the object class name:</p>
+    <input type="text" id="objectClassName" placeholder="Enter object class name (if applicable)...">
+
+    <button onclick="convertToJavaModel()">Convert to Java Model</button>
+
+    <h2>Generated Java Model:</h2>
+
+    <button onclick="copyObjectText()">copy Object Text</button>
+    <pre id="output"></pre>
+
+    <button onclick="copyMainText()">copy Main Text</button>
+    <pre id="outputMain"></pre>
+
+    <button onclick="copyApiServices()">copy ApiServices Text</button>
+    <pre id="outApiServices"></pre>
+
+    <button onclick="copyRepository()">copy Repository</button>
+    <pre id="outRepository"></pre>
+
+    <button onclick="copyViewModel()">copy ViewModel</button>
+    <pre id="outViewModel"></pre>
+
+    <button onclick="copyActivityText()">copy ActivityText</button>
+    <pre id="outActivityText"></pre>
+
+    <script>
+        const outputElement = document.getElementById('output');
+        const outputMain = document.getElementById('outputMain');
+        const outApiServices = document.getElementById('outApiServices');
+        const outRepository = document.getElementById('outRepository');
+        const outViewModel = document.getElementById('outViewModel');
+        const outActivityText = document.getElementById('outActivityText');
+
+        let apiservicefun;
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function convertToJavaModel() {
+
+            const fileLink = document.getElementById('filelinkInput').value;
+
+            const jsonInput = document.getElementById('jsonInput').value;
+            const mainClassName = document.getElementById('mainClassName').value || 'MyModel';
+            const objectClassName = document.getElementById('objectClassName').value || 'NestedObject';
+
+            const usedClassNames = new Set();
+
+            try {
+                const jsonObject = JSON.parse(jsonInput);
+                let mainClass = `public class ${mainClassName} {\n`;
+                const innerClasses = [];
+
+                function parseObject(obj, className) {
+                    if (usedClassNames.has(className)) {
+                        className += usedClassNames.size;
+                    }
+                    usedClassNames.add(className);
+
+                    let result = `public class ${className} {\n`;
+
+                    for (const key in obj) {
+                        if (obj.hasOwnProperty(key)) {
+                            const value = obj[key];
+                            const fieldType = typeof value;
+
+                            let javaType;
+                            switch (fieldType) {
+                                case 'string':
+                                    javaType = 'String';
+                                    break;
+                                case 'number':
+                                    javaType = Number.isInteger(value) ? 'int' : 'double';
+                                    break;
+                                case 'boolean':
+                                    javaType = 'boolean';
+                                    break;
+                                case 'object':
+                                    if (Array.isArray(value)) {
+                                        const innerClassName = capitalize(key.slice(0, -1)) || 'Item';
+                                        parseObject(value[0], innerClassName);
+                                        javaType = `List<${innerClassName}>`;
+                                    } else {
+                                        parseObject(value, objectClassName);
+                                        javaType = objectClassName;
+                                    }
+                                    break;
+                                default:
+                                    javaType = 'String';
+                            }
+
+                            result += `    @SerializedName(\"${key}\")\n`;
+                            result += `    @Expose\n`;
+                            result += `    private ${javaType} ${key};\n`;
+                        }
+                    }
+
+                    result += `\n    // Getters and Setters\n`;
+
+                    for (const key in obj) {
+                        if (obj.hasOwnProperty(key)) {
+                            const value = obj[key];
+                            const fieldType = typeof value;
+
+                            let javaType;
+                            switch (fieldType) {
+                                case 'string':
+                                    javaType = 'String';
+                                    break;
+                                case 'number':
+                                    javaType = Number.isInteger(value) ? 'int' : 'double';
+                                    break;
+                                case 'boolean':
+                                    javaType = 'boolean';
+                                    break;
+                                case 'object':
+                                    if (Array.isArray(value)) {
+                                        const innerClassName = capitalize(key.slice(0, -1)) || 'Item';
+                                        javaType = `List<${innerClassName}>`;
+                                    } else {
+                                        javaType = objectClassName;
+                                    }
+                                    break;
+                                default:
+                                    javaType = 'String';
+                            }
+
+                            const capitalizedKey = capitalize(key);
+                            result += `    public ${javaType} get${capitalizedKey}() { return ${key}; }\n`;
+                            result += `    public void set${capitalizedKey}(${javaType} ${key}) { this.${key} = ${key}; }\n`;
+                        }
+                    }
+
+                    result += `}\n`;
+                    innerClasses.push(result);
+                }
+
+                for (const key in jsonObject) {
+                    if (jsonObject.hasOwnProperty(key)) {
+                        const value = jsonObject[key];
+                        const fieldType = typeof value;
+
+                        let javaType;
+                        switch (fieldType) {
+                            case 'string':
+                                javaType = 'String';
+                                break;
+                            case 'number':
+                                javaType = Number.isInteger(value) ? 'int' : 'double';
+                                break;
+                            case 'boolean':
+                                javaType = 'boolean';
+                                break;
+                            case 'object':
+                                if (Array.isArray(value)) {
+                                    const innerClassName = capitalize(key.slice(0, -1)) || 'Item';
+                                    parseObject(value[0], innerClassName);
+                                    javaType = `List<${innerClassName}>`;
+                                } else {
+                                    parseObject(value, objectClassName);
+                                    javaType = objectClassName;
+                                }
+                                break;
+                            default:
+                                javaType = 'String';
+                        }
+
+                        mainClass += `    @SerializedName(\"${key}\")\n`;
+                        mainClass += `    @Expose\n`;
+                        mainClass += `    private ${javaType} ${key};\n`;
+                    }
+                }
+
+                mainClass += `\n    // Getters and Setters\n`;
+
+                for (const key in jsonObject) {
+                    if (jsonObject.hasOwnProperty(key)) {
+                        const value = jsonObject[key];
+                        const fieldType = typeof value;
+
+                        let javaType;
+                        switch (fieldType) {
+                            case 'string':
+                                javaType = 'String';
+                                break;
+                            case 'number':
+                                javaType = Number.isInteger(value) ? 'int' : 'double';
+                                break;
+                            case 'boolean':
+                                javaType = 'boolean';
+                                break;
+                            case 'object':
+                                if (Array.isArray(value)) {
+                                    const innerClassName = capitalize(key.slice(0, -1)) || 'Item';
+                                    javaType = `List<${innerClassName}>`;
+                                } else {
+                                    javaType = objectClassName;
+                                }
+                                break;
+                            default:
+                                javaType = 'String';
+                        }
+
+                        const capitalizedKey = capitalize(key);
+                        mainClass += `    public ${javaType} get${capitalizedKey}() { return ${key}; }\n`;
+                        mainClass += `    public void set${capitalizedKey}(${javaType} ${key}) { this.${key} = ${key}; }\n`;
+                    }
+                }
+
+                mainClass += `}\n`;
+
+                let mainhead = "import java.util.List;\nimport com.google.gson.annotations.Expose;\nimport com.google.gson.annotations.SerializedName;\n\n";
+                let objecthead = "import com.google.gson.annotations.Expose;\nimport com.google.gson.annotations.SerializedName;\n\n";
+
+                let currentText = mainhead + mainClass + '\n';
+                let objecttext = objecthead + innerClasses.join('\n');
+
+                if (objecttext.includes('public class Dat')) {
+                    objecttext = objecttext.replace('public class Dat', `public class ${objectClassName}`);
+                }
+
+                if (currentText.includes('List<Dat>')) {
+                    currentText = currentText.replace(/List<Dat>/g, `List<${objectClassName}>`);
+                }
+
+
+                var lastPart = fileLink.substring(fileLink.lastIndexOf("/") + 1);
+
+                var modelname = objectClassName.replace("Model", "");
+                apiservicefun = " getall" + modelname;
+                let ApiSer = `@FormUrlEncoded\n@POST("${lastPart}")\nCall<${mainClassName}>${apiservicefun}(@Field("key") String key);`;
+
+                outApiServices.textContent = ApiSer;
+                outputElement.textContent = objecttext;
+                outputMain.textContent = currentText;
+
+
+
+
+                let strRepository = `
+
+import android.content.Context;
+import androidx.lifecycle.MutableLiveData;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+public class ${modelname}Repository {
+
+
+    private static ${modelname}Repository instance;
+    private static Context rcontext;
+    private MutableLiveData<${mainClassName}> mlivedata;
+
+    public static ${modelname}Repository getInstance(Context context) {
+
+        if (instance == null) {
+            rcontext = context;
+            instance = new ${modelname}Repository();
+        }
+        return instance;
+
+    }
+
+    public MutableLiveData<${mainClassName}> fetchData(String key) {
+
+        if (mlivedata == null) {
+            mlivedata = new MutableLiveData<>();
+        }
+
+            ApiServices apiServices = RetrofitInstance.getRetroInstance().create(ApiServices.class);
+
+            Call<${mainClassName}> call = apiServices.${apiservicefun}(key);
+            call.enqueue(new Callback<${mainClassName}>() {
+                @Override
+                public void onResponse(Call<${mainClassName}> call, Response<${mainClassName}> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        mlivedata.postValue(response.body());
+                    } else {
+                        mlivedata.postValue(null);
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<${mainClassName}> call, Throwable throwable) {
+                    mlivedata.postValue(null);
+                }
+            });
+
+        return mlivedata;
+
+    } }`;
+                outRepository.textContent = strRepository;
+
+                let strviewmodel = `
+
+import android.app.Application;
+import androidx.annotation.NonNull;
+import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.LiveData;
+
+public class ${modelname}ViewModel extends AndroidViewModel {
+
+    private ${modelname}Repository repository;
+
+    public ${modelname}ViewModel (@NonNull Application application) {
+        super(application);
+        repository = new ${modelname}Repository();
+    }
+
+    public LiveData<${mainClassName}> getData(String key) {
+        return repository.fetchData(key);
+    }
+}`;
+
+
+                outViewModel.textContent = strviewmodel;
+
+
+                let stractivity = `
+private Adapter${modelname} adapter;
+
+        ${modelname}ViewModel viewModel = new ViewModelProvider(this).get(${modelname}ViewModel.class);
+        viewModel.getData("key").observe(this, response -> {
+        progressbar.setVisibility(View.GONE);
+        if (response != null && "000".equals(response.getErrorCode())) {
+            recyclerView.setVisibility(View.VISIBLE);
+                data = response.getData();
+                adapter = new Adapter${modelname}(data);
+                recyclerView.setAdapter(adapter);
+
+            } else {
+                Toast.makeText(this, "Something went wrong. Please try again later.", Toast.LENGTH_SHORT).show();
+            } });`;
+
+
+                outActivityText.textContent = stractivity;
+
+            } catch (error) {
+                outputElement.textContent = 'Invalid JSON input. Please check your JSON and try again.';
+            }
+
+
+
+
+
+        }
+
+        function copyObjectText() {
+            const text = outputElement.innerText; // Get text from the element
+            navigator.clipboard.writeText(text) // Copy the text to the clipboard
+                .then(() => {
+                    // alert("Text copied!");
+                })
+                .catch(err => {
+                    console.error("Error copying text: ", err);
+                });
+        }
+        function copyMainText() {
+            const text = outputMain.innerText; // Get text from the element
+            navigator.clipboard.writeText(text) // Copy the text to the clipboard
+                .then(() => {
+                    //  alert("Text copied!");
+                })
+                .catch(err => {
+                    console.error("Error copying text: ", err);
+                });
+        }
+        function copyApiServices() {
+            const text = outApiServices.innerText; // Get text from the element
+            navigator.clipboard.writeText(text) // Copy the text to the clipboard
+                .then(() => {
+                    //  alert("Text copied!");
+                })
+                .catch(err => {
+                    console.error("Error copying text: ", err);
+                });
+        }
+        function copyRepository() {
+            const text = outRepository.innerText; // Get text from the element
+            navigator.clipboard.writeText(text) // Copy the text to the clipboard
+                .then(() => {
+                    //  alert("Text copied!");
+                })
+                .catch(err => {
+                    console.error("Error copying text: ", err);
+                });
+        }
+        function copyViewModel() {
+            const text = outViewModel.innerText; // Get text from the element
+            navigator.clipboard.writeText(text) // Copy the text to the clipboard
+                .then(() => {
+                    //  alert("Text copied!");
+                })
+                .catch(err => {
+                    console.error("Error copying text: ", err);
+                });
+        }
+
+        function copyActivityText() {
+            const text = outActivityText.innerText; // Get text from the element
+            navigator.clipboard.writeText(text) // Copy the text to the clipboard
+                .then(() => {
+                    //  alert("Text copied!");
+                })
+                .catch(err => {
+                    console.error("Error copying text: ", err);
+                });
+        }
+
+
+    </script>
+</body>
+
+</html>

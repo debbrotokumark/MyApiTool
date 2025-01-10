@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Code Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+        }
+
+        table {
+            width: 100%;
+            margin-bottom: 20px;
+            border-collapse: collapse;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ddd;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+
+        .btn-danger {
+            background-color: #DC3545;
+        }
+
+        #sql-output {
+            width: 100%;
+            height: 150px;
+            margin-top: 20px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>SQL Code Generator</h1>
+    <form id="sql-form">
+        <label for="table-name">Table Name:</label>
+        <input type="text" id="table-name" placeholder="Enter table name" required>
+        <table id="columns-table">
+            <thead>
+                <tr>
+                    <th>Column Name</th>
+                    <th>Data Type</th>
+                    <th>VARCHAR Size</th>
+                    <th>Constraints</th>
+                    <th>Auto Increment</th>
+                    <th>Primary Key</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" placeholder="Column Name" required></td>
+                    <td>
+                        <select class="data-type" required>
+                            <option value="INT">INT</option>
+                            <option value="VARCHAR">VARCHAR</option>
+                            <option value="TEXT">TEXT</option>
+                            <option value="DATE">DATE</option>
+                        </select>
+                    </td>
+                    <td><input type="number" class="varchar-size" placeholder="Size (e.g., 255)" disabled></td>
+                    <td><input type="text" placeholder="Constraints (e.g., UNIQUE)"></td>
+                    <td><input type="checkbox" class="auto-increment"></td>
+                    <td><input type="radio" name="primary-key"></td>
+                    <td><button type="button" class="btn btn-danger remove-row">Remove</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="button" class="btn" id="add-column">Add Column</button>
+        <button type="button" class="btn" id="generate-sql">Generate SQL</button>
+        <button type="button" class="btn" id="copy-sql">Copy SQL</button>
+    </form>
+
+    <h2>Generated SQL Code</h2>
+    <textarea id="sql-output" readonly></textarea>
+
+    <script>
+        // Add a new row for column input
+        document.getElementById('add-column').addEventListener('click', function () {
+            const tableBody = document.querySelector('#columns-table tbody');
+            const newRow = `
+            <tr>
+                <td><input type="text" placeholder="Column Name" required></td>
+                <td>
+                    <select class="data-type" required>
+                        <option value="INT">INT</option>
+                        <option value="VARCHAR">VARCHAR</option>
+                        <option value="TEXT">TEXT</option>
+                        <option value="DATE">DATE</option>
+                    </select>
+                </td>
+                <td><input type="number" class="varchar-size" placeholder="Size (e.g., 255)" disabled></td>
+                <td><input type="text" placeholder="Constraints (e.g., UNIQUE)"></td>
+                <td><input type="checkbox" class="auto-increment"></td>
+                <td><input type="radio" name="primary-key"></td>
+                <td><button type="button" class="btn btn-danger remove-row">Remove</button></td>
+            </tr>
+        `;
+            tableBody.insertAdjacentHTML('beforeend', newRow);
+            addEventListeners();
+        });
+
+        // Generate SQL code based on input
+        document.getElementById('generate-sql').addEventListener('click', function () {
+            const tableName = document.getElementById('table-name').value.trim();
+            const rows = document.querySelectorAll('#columns-table tbody tr');
+            if (!tableName || rows.length === 0) {
+                alert('Please provide a table name and at least one column.');
+                return;
+            }
+
+            let sql = `CREATE TABLE ${tableName} (\n`;
+            let primaryKeyColumn = null;
+
+            rows.forEach((row, index) => {
+                const columnName = row.querySelector('input[type="text"]').value.trim();
+                const dataType = row.querySelector('.data-type').value;
+                const varcharSize = row.querySelector('.varchar-size').value.trim();
+                const constraints = row.querySelector('td:nth-child(4) input').value.trim();
+                const isAutoIncrement = row.querySelector('.auto-increment').checked;
+                const isPrimaryKey = row.querySelector('input[type="radio"]').checked;
+
+                if (isPrimaryKey) {
+                    primaryKeyColumn = columnName;
+                }
+
+                let columnDefinition = `${columnName} ${dataType}`;
+                if (dataType === 'VARCHAR' && varcharSize) {
+                    columnDefinition += `(${varcharSize})`;
+                }
+                if (constraints) {
+                    columnDefinition += ` ${constraints}`;
+                } else if (!isPrimaryKey) {
+                    columnDefinition += ` NOT NULL`;
+                }
+                if (isAutoIncrement) {
+                    columnDefinition += ` AUTO_INCREMENT`;
+                }
+
+                sql += `    ${columnDefinition}`;
+                sql += index < rows.length - 1 ? ',\n' : ',\n';
+            });
+
+            if (primaryKeyColumn) {
+                sql += `    PRIMARY KEY (${primaryKeyColumn})\n`;
+            }
+            sql += ');';
+
+            document.getElementById('sql-output').value = sql;
+        });
+
+        // Enable/disable VARCHAR size input based on data type
+        function addEventListeners() {
+            document.querySelectorAll('.data-type').forEach(select => {
+                select.addEventListener('change', function () {
+                    const varcharInput = this.closest('tr').querySelector('.varchar-size');
+                    if (this.value === 'VARCHAR') {
+                        varcharInput.disabled = false;
+                    } else {
+                        varcharInput.disabled = true;
+                        varcharInput.value = '';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.remove-row').forEach(button => {
+                button.addEventListener('click', function () {
+                    this.closest('tr').remove();
+                });
+            });
+        }
+
+        // Copy SQL code to clipboard
+        document.getElementById('copy-sql').addEventListener('click', function () {
+            const sqlOutput = document.getElementById('sql-output');
+            sqlOutput.select();
+            document.execCommand('copy');
+            alert('SQL code copied to clipboard!');
+        });
+
+        addEventListeners();
+    </script>
+
+</body>
+
+</html>
+
