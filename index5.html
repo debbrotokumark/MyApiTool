@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL to PHP & Retrofit Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f8f9fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            overflow: auto;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 900px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+
+        textarea,
+        input,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        pre {
+            background: #e9ecef;
+            padding: 10px;
+            overflow-x: auto;
+            border-radius: 5px;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .copy-btn {
+            margin-top: 5px;
+            background: #28a745;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>SQL to PHP & Retrofit Generator</h2>
+        <input type="text" id="keyInput" placeholder="Enter your security key...">
+        <textarea id="sqlInput" placeholder="Enter your SELECT query here..."></textarea>
+        <button onclick="generateCode()">Generate Code</button>
+
+        <h3>Generated PHP Code:</h3>
+        <pre id="phpOutput"></pre>
+        <button class="copy-btn" onclick="copyToClipboard('phpOutput')">Copy PHP</button>
+        <button class="copy-btn" onclick="downloadFile()">Download php</button>
+
+        <h3>Generated Retrofit Code:</h3>
+        <pre id="retrofitOutput"></pre>
+        <button class="copy-btn" onclick="copyToClipboard('retrofitOutput')">Copy Retrofit</button>
+
+        <h3>Generated Repository Code:</h3>
+        <pre id="repositoryOutput"></pre>
+        <button class="copy-btn" onclick="copyToClipboard('repositoryOutput')">Copy Repository</button>
+
+        <h3>Generated ViewModel Code:</h3>
+        <pre id="viewModelOutput"></pre>
+        <button class="copy-btn" onclick="copyToClipboard('viewModelOutput')">Copy ViewModel</button>
+    </div>
+
+    <script>
+
+        var filename;
+
+        function generateCode() {
+            let sql = document.getElementById('sqlInput').value;
+            let key = document.getElementById('keyInput').value || 'default_key';
+            let match = sql.match(/SELECT (.+) FROM (\w+)/i);
+            if (!match) {
+                alert('Invalid SQL SELECT query.');
+                return;
+            }
+
+            let columns = match[1].split(',').map(col => col.trim()).filter(col => col !== 'id');
+            let table = match[2].trim();
+
+            //   let phpCode = `<?php\n$key = $_POST['key'];\nif ($key == "${key}") {\nrequire '../connection.php';\n${columns.map(col => `$${col} = $_POST['${col}'] ?? '';`).join('\n')}\n$query = "INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})";\n$stmt = mysqli_prepare($conn, $query);\nmysqli_stmt_bind_param($stmt, "${'s'.repeat(columns.length)}", ${columns.map(col => `$${col}`).join(', ')});\nif (mysqli_stmt_execute($stmt)) {\necho json_encode(['message' => 'Success']);\n} else {\necho json_encode(['message' => 'Failed']);\n}\nmysqli_close($conn);\n} else {\necho json_encode(['message' => 'Unauthorized']);\n}\n?>`;
+
+            let phpCode = `<?php
+
+$key = $_POST['key'];
+
+if ($key == "${key}") {
+    require '../connection.php';
+
+    // Retrieve data from POST request
+    ${columns.map(col => `$${col} = $_POST['${col}'] ?? '';`).join("\n    ")}
+
+    $response = [
+        'errorCode' => '000',  // Default success code
+        'message' => ''
+    ];
+
+    // Check if any field is empty
+    if (${columns.map(col => `empty($${col})`).join(' || ')}) {
+        $response['errorCode'] = '001';
+        $response['message'] = 'All fields are required.';
+    } else {
+        // SQL query to insert data
+        $query = "INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})";
+        $stmt = mysqli_prepare($conn, $query);
+        mysqli_stmt_bind_param($stmt, "${'s'.repeat(columns.length)}", ${columns.map(col => `$${col}`).join(', ')});
+
+        // Execute the query
+        if (mysqli_stmt_execute($stmt)) {
+            $response['message'] = 'Data inserted successfully.';
+        } else {
+            $response['errorCode'] = '002';
+            $response['message'] = 'Failed to insert data.';
+        }
+
+        mysqli_stmt_close($stmt);
+    }
+
+    mysqli_close($conn);
+} else {
+    $response = [
+        'errorCode' => '401', // Unauthorized access
+        'message' => 'Unauthorized access.',
+    ];
+}
+
+// Set the content type to JSON and output the response
+header('Content-Type: application/json');
+echo json_encode($response);
+
+?>`;
+
+            filename = `insert${table}.php`;
+
+            let retrofitCode = `@FormUrlEncoded\n@POST("insert${table}.php")\nCall<ApiResponse> insert${table}(\n@Field("key") String key,\n${columns.map(col => `@Field("${col}") String ${col}`).join(',\n')}\n);`;
+
+            let repositoryCode = `public MutableLiveData<ApiResponse> insertData(String key, ${columns.map(col => `String ${col}`).join(', ')}) {\nMutableLiveData<ApiResponse> liveData = new MutableLiveData<>();\nCall<ApiResponse> call = apiServices.insert${table}(key, ${columns.join(', ')});\ncall.enqueue(new Callback<ApiResponse>() {\n@Override\npublic void onResponse(Call<ApiResponse> call, Response<ApiResponse> response) {\nliveData.postValue(response.body());\n}\n@Override\npublic void onFailure(Call<ApiResponse> call, Throwable t) {\nliveData.postValue(null);\n}\n});\nreturn liveData;\n}`;
+
+            let viewModelCode = `public LiveData<ApiResponse> insertData(String key, ${columns.map(col => `String ${col}`).join(', ')}) {\nreturn repository.insertData(key, ${columns.join(', ')});\n}`;
+
+
+
+
+            document.getElementById('phpOutput').textContent = phpCode;
+            document.getElementById('retrofitOutput').textContent = retrofitCode;
+            document.getElementById('repositoryOutput').textContent = repositoryCode;
+            document.getElementById('viewModelOutput').textContent = viewModelCode;
+        }
+
+        function copyToClipboard(elementId) {
+            let output = document.getElementById(elementId);
+            navigator.clipboard.writeText(output.textContent).then(() => {
+                // alert('Copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+
+        function downloadFile() {
+            // Get the input values
+            var data = document.getElementById('phpOutput').value;
+
+            // Combine data
+
+            // Create a Blob with the content
+            var blob = new Blob([data], { type: 'application/php' });
+
+            // Create a download link
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;  // Specify the download file name
+
+            // Trigger the download
+            link.click();
+        }
+
+    </script>
+</body>
+
+</html>
