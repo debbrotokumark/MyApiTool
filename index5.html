@@ -101,7 +101,8 @@
 
     <script>
 
-        var filename;
+        var filename = "kisssu nai";
+        var allphpCode = "kisssu nai";
 
         function generateCode() {
             let sql = document.getElementById('sqlInput').value;
@@ -166,6 +167,7 @@ header('Content-Type: application/json');
 echo json_encode($response);
 
 ?>`;
+            allphpCode = phpCode;
 
             filename = `insert${table}.php`;
 
@@ -195,12 +197,12 @@ echo json_encode($response);
 
         function downloadFile() {
             // Get the input values
-            var data = document.getElementById('phpOutput').value;
+          //  var data = document.getElementById('phpOutput').value;
 
             // Combine data
 
             // Create a Blob with the content
-            var blob = new Blob([data], { type: 'application/php' });
+            var blob = new Blob([allphpCode], { type: 'application/php' });
 
             // Create a download link
             var link = document.createElement('a');
